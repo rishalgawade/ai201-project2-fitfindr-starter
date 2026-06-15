@@ -135,7 +135,7 @@ It's a {new_item['category']} in {', '.join(new_item['colors'])} color(s), style
 Since I don't have wardrobe info, give me 2 general outfit ideas and styling tips for this item."""
     else:
         wardrobe_text = "\n".join(
-            f"- {w['name']} ({w['category']}, {w['color']})"
+            f"- {w['name']} ({w['category']}, {w['colors']})"
             for w in wardrobe["items"]
         )
         prompt = f"""I'm considering buying: {new_item['title']} - {new_item['description']}.
