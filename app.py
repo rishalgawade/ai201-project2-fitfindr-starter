@@ -44,8 +44,10 @@ def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:
            session["fit_card"].
     """
     # TODO: implement this function
+    if not user_query or not user_query.strip():
+        return "Please enter a search query.", "", ""
 
-    wardrobe = get_example_wardrobe() if wardrobe_choice == "example" else get_empty_wardrobe()
+    wardrobe = get_example_wardrobe() if wardrobe_choice == "Example wardrobe" else get_empty_wardrobe()
 
     session = run_agent(query=user_query, wardrobe=wardrobe)
 
