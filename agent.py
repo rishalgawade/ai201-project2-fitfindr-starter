@@ -18,6 +18,8 @@ Usage (once implemented):
     print(result["error"])   # None on success
 """
 
+import re
+
 from tools import search_listings, suggest_outfit, create_fit_card
 
 
@@ -48,6 +50,59 @@ def _new_session(query: str, wardrobe: dict) -> dict:
 # ── planning loop ─────────────────────────────────────────────────────────────
 
 def run_agent(query: str, wardrobe: dict) -> dict:
+    """
+    Main agent entry point. Runs the FitFindr planning loop for a single
+    user interaction and returns the completed session dict.
+
+    Args:
+        query:    Natural language user request
+                  (e.g., "vintage graphic tee under $30, size M")
+        wardrobe: User's wardrobe dict — use get_example_wardrobe() or
+                  get_empty_wardrobe() from utils/data_loader.py
+
+    Returns:
+        The session dict after the interaction completes. Check session["error"]
+        first — if it is not None, the interaction ended early and the other
+        output fields (outfit_suggestion, fit_card) will be None.
+    """
+
+    # Step 1: Initialize the session
+    session = _new_session(query, wardrobe)
+
+    # Step 2: Parse the query to extract description, size, and max_price
+    size_match = re.search(r'\b(XS|S|M|L|XL|XXL)\b', query, re.IGNORECASE)
+    price_match = re.search(r'\$?(\d+)', query)
+    size = size_match.group(1).upper() if size_match else None
+    max_price = float(price_match.group(1)) if price_match else None
+    # Strip size/price/filler words to get a clean description for keyword matching
+    description = re.sub(
+        r'(size\s+\S+|\$?\d+|under|below|looking for|i want|a\s)',
+        '', query, flags=re.IGNORECASE
+    ).strip()
+    session["parsed"] = {"description": description, "size": size, "max_price": max_price}
+
+    # Step 3: Search for listings
+    results = search_listings(description, size=size, max_price=max_price)
+    session["search_results"] = results
+
+    if not results:
+        session["error"] = (
+            f"No listings found for '{query}'. "
+            "Try different keywords, a higher price, or remove the size filter."
+        )
+        return session
+
+    # Step 4: Select the top result
+    session["selected_item"] = results[0]
+
+    # Step 5: Suggest an outfit
+    session["outfit_suggestion"] = suggest_outfit(session["selected_item"], wardrobe)
+
+    # Step 6: Create the fit card
+    session["fit_card"] = create_fit_card(session["outfit_suggestion"], session["selected_item"])
+
+    # Step 7: Return the completed session
+    return session
     """
     Main agent entry point. Runs the FitFindr planning loop for a single
     user interaction and returns the completed session dict.
@@ -93,8 +148,26 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     of planning.md — your implementation should match what you described there.
     """
     # TODO: implement the planning loop
-    session = _new_session(query, wardrobe)
-    session["error"] = "Planning loop not yet implemented."
+    session = _new_session(query, wardrobe)  # blank session dict
+
+    # ── Step 1: Search for items ──────────────────────
+    results = search_listings(query)  # parse query loosely for now
+
+    if not results:
+        session["error"] = f"No listings found for '{query}'. Try different keywords or a higher price."
+        return session
+
+    # Save first result to session
+    session["selected_item"] = results[0]
+
+    # ── Step 2: Suggest an outfit ─────────────────────
+    outfit = suggest_outfit(session["selected_item"], wardrobe)
+    session["outfit_suggestion"] = outfit
+
+    # ── Step 3: Create the fit card ───────────────────
+    fit_card = create_fit_card(session["outfit_suggestion"], session["selected_item"])
+    session["fit_card"] = fit_card
+
     return session
 
 
